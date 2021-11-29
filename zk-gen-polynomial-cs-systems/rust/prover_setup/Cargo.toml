@@ -1,0 +1,12 @@
+[package]
+name = "prover_setup"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vlpa19 = {version = "0.1.0", path = "../vlpa19", default_features = false}
+zkinterface-marlin = {version = "0.1.0", path = "../zkinterface-marlin", default_features = false}
+ark-bls12-381 = { git = "https://github.com/SRI-CSL/curves", default-features = false, features = [ "curve" ], version = "0.1.0" }
+sieve_fields = {path = "../sieve_fields"}
