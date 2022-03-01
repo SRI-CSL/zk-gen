@@ -10,6 +10,6 @@ ark-ff = {git = "https://github.com/SRI-CSL/algebra", default-features=false, ve
 ark-poly ={git = "https://github.com/SRI-CSL/algebra", default-features=false, version="0.1.0"}
 ark-bn254 = {git = "https://github.com/SRI-CSL/curves"}
 ark-test-curves = {git = "https://github.com/SRI-CSL/algebra", default-features=false, features=["bls12_381_curve","mnt4_753_curve"], version="0.1.0"}
-ark-std = {version = "0.2.1-alpha.0", git = "https://github.com/SRI-CSL/utils", default-features = false}
+ark-std = {version = "0.2.1-alpha.0", git = "https://github.com/SRI-CSL/utils", default-features = false, branch = "feb_freeze_orig"}
 ark-serialize = {git = "https://github.com/SRI-CSL/algebra", default-features=false, version = "0.1.0"}
 derivative={version="2",features=["use_core"]}

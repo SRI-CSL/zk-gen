@@ -13,7 +13,7 @@ ark-ff = {git = "https://github.com/SRI-CSL/algebra", default-features=false, ve
 ark-poly ={git = "https://github.com/SRI-CSL/algebra", default-features=false, version="0.1.0"} 
 ark-test-curves = {git = "https://github.com/SRI-CSL/algebra", default-features=false, features=["bls12_381_curve","mnt4_753_curve"], version="0.1.0"}
 num-traits = { version = "0.2", default-features = false }
-ark-std = {version = "0.2.1-alpha.0", git = "https://github.com/SRI-CSL/utils", default-features = false}
+ark-std = {version = "0.2.1-alpha.0", git = "https://github.com/SRI-CSL/utils", default-features = false, branch="feb_freeze_orig"}
 rand_xorshift = { version = "0.2" }
 rand = "0.7.3"
 ark-serialize = {git = "https://github.com/SRI-CSL/algebra", default-features=false, version = "0.1.0"}
