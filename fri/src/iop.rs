@@ -1,9 +1,11 @@
 use ark_ff::{ToBytes};
 use num_traits::{One,Zero};
-use ark_std::{fmt::Debug,string::String,marker::PhantomData,io::{Read,Write},ops::Add};
+use ark_std::{borrow::Borrow,fmt::Debug,string::String,marker::PhantomData,io::{Read,Write},ops::Add,rand::Rng};
 use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize};
-use ark_crypto_primitives::{merkle_tree::{MerkleTree,Path,Config,Digest},
-			    crh::pedersen,FixedLengthCRH};
+use ark_crypto_primitives::{merkle_tree::{MerkleTree,Path,Config},
+			    crh::{pedersen,CRHScheme,TwoToOneCRHScheme}};
+
+
 pub trait Oracle:
       ToBytes
     + Debug
@@ -13,7 +15,7 @@ pub trait Oracle:
 {
     type X : ToBytes + Debug + CanonicalSerialize + CanonicalDeserialize + Default + Clone + Add<Output = Self::X> + PartialEq + One + Send + Sync + ToBytes;
     type Y : ToBytes + Debug + CanonicalSerialize + CanonicalDeserialize + Default + Clone + Add<Output = Self::Y> + PartialEq + One + Zero + ToBytes;
-    type C : Config;
+    type C : Config<Leaf = Self::Y>;
     type Domain;
     fn to_vec(&self) -> Vec<(Self::X,Self::Y)>;
     fn points_to_domain(points: Vec<Self::X>) -> Self::Domain;
@@ -28,10 +30,15 @@ pub trait Oracle:
     fn to_maybe_y(&self,x : &Self::X, y: &Self::Y) -> Self::Y;
     fn from_domain_and_evals(domain:Self::Domain, evals:Vec<Self::Y>) -> Self;
     fn to_tree(&self) -> MerkleTree<Self::C>{
-	let leaves = &self.to_evals();
-	let mut rng = ark_std::test_rng();
-	let crh_parameters = (<<Self as Oracle>::C as Config>::H::setup(&mut rng)).unwrap();
-	let tree = MerkleTree::<Self::C>::new(crh_parameters.clone(), &leaves).unwrap();
+	let mut leaves = &mut self.to_evals();
+	let mut rng  = ark_std::test_rng();
+	let crh_parameters = (<<Self as Oracle>::C as Config>::LeafHash::setup(&mut rng)).unwrap();
+	let two_to_one_param = (<<Self as Oracle>::C as Config>::TwoToOneHash::setup(&mut rng)).unwrap();
+	if leaves.len().is_power_of_two() == false || leaves.len() == 0 || leaves.len() == 1{
+	    leaves.push(Self::Y::zero());
+	}
+  	println!("leaves length {:?}", leaves.len());
+	let tree = MerkleTree::<Self::C>::new(&crh_parameters, &two_to_one_param, leaves).unwrap();
 	tree
     }
     

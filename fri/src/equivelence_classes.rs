@@ -5,6 +5,8 @@ use derivative::Derivative;
 use std::time::{Duration, Instant};
 use parallelize::{parallel_function};
 use data_structures::{RSCodeDomain,Codeword};
+use ark_test_curves::bls12_381::Fr;
+
 use ark_ff::{PrimeField,ToBytes};
 use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize,Write,Read};
 use ark_poly::{domain::{EvaluationDomain,Radix2EvaluationDomain},evaluations::{univariate::{Evaluations}},polynomial::{Polynomial,univariate::{DensePolynomial,SparsePolynomial}, UVPolynomial}};

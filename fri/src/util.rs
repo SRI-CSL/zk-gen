@@ -1,13 +1,14 @@
-
 extern crate num_cpus;
+use ark_test_curves::bls12_381::Fr;
 use std::collections::{BTreeMap,HashMap};
 use std::convert::{TryInto,From};
 use std::thread;
 use crossbeam_channel::bounded;
 use super::equivalence_classes::{DomainEquivClass,EquivClass};
 use std::time::{Duration, Instant};
-use ark_ff::{FftField, FftParameters, Field, One, PrimeField, Zero};
+use ark_ff::fields::{FftField, FftParameters, Field, PrimeField};
 use std::ops::Mul;
+use num_traits::{One, Zero};
 use ark_poly::{
     domain::{EvaluationDomain, Radix2EvaluationDomain},
     evaluations::{univariate::{Evaluations}},
@@ -18,9 +19,9 @@ use ark_poly::{
 };
 
 pub use super::{parallelize::{parallel_hashmap_noaux, parallel_vec_function,parallel_function,parallel_btreemap,parallel_hashmap,parallel_hashmap_flatten}};
-use ark_test_curves::bls12_381::Fr;
+
 use rand::distributions::{Distribution, Uniform};
-pub fn verifier_challenge<F: PrimeField>() -> F {
+pub fn verifier_challenge<F: PrimeField + Field + FftField>() -> F {
     let modulus:usize = F::size_in_bits()/8;
     let rb: Vec<u8> = (0..modulus).map(|_| { rand::random::<u8>() }).collect();
     let mut challenge;
@@ -32,7 +33,7 @@ pub fn verifier_challenge<F: PrimeField>() -> F {
     }
     challenge.unwrap()
 }
-fn prod_except_inverse<F:PrimeField>(args:&Vec<F>,except:&F) -> F{
+fn prod_except_inverse<F:PrimeField + Field + FftField>(args:&Vec<F>,except:&F) -> F{
     let mut prod = F::one();
     for el in args{
 	if el != except{
@@ -41,14 +42,14 @@ fn prod_except_inverse<F:PrimeField>(args:&Vec<F>,except:&F) -> F{
     }
     prod
 }
-fn prods<F:PrimeField>(args:Vec<F>) -> F{
+fn prods<F:PrimeField + Field + FftField>(args:Vec<F>) -> F{
     let mut prod = F::one();
     for el in args{
 	prod = prod *  el;
     }
     prod
 }
-pub fn evaluate_poly<F: PrimeField>(
+pub fn evaluate_poly<F: PrimeField + Field + ark_ff::fields::FftField>(
     p: &DensePolynomial<F>,
     d: &Radix2EvaluationDomain<F>,
 ) -> Evaluations<F, Radix2EvaluationDomain<F>> {

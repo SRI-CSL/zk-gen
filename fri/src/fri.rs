@@ -6,21 +6,23 @@ extern crate num_cpus;
 #[path="niroa.rs"] pub mod niroa;
 #[path="equivelence_classes.rs"] pub mod equivalence_classes;
 
-
+use num_traits::{One, Zero};
 use ark_std::hash::{Hash,Hasher};
-use ark_ff::{PrimeField,ToBytes};
+use ark_ff::{PrimeField};
+use ark_ff::{bytes::ToBytes};
 use ark_std::{
-    io::{Read, Result as IoResult},
+    io::{  Result as IoResult },
     vec::Vec,
 };
+use std::{fmt::Debug,ops::Add};
 use derivative::Derivative;
-use std::thread;
+use ark_test_curves::bls12_381::Fr;
 use equivalence_classes::{DomainEquivClass,EquivClass};
 use parallelize::{parallel_function,parallel_btreemap,parallel_btreemap_noaux,parallel_hashmap_noaux};
 use crossbeam_channel::bounded;
-use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize};
-use std::time::{Duration, Instant};
-use ark_test_curves::bls12_381::{Fr};
+use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize,Read,Write};
+use std::{time::{Duration, Instant},io::Error};
+
 use ark_poly::{domain::{EvaluationDomain,Radix2EvaluationDomain},evaluations::{univariate::{Evaluations}},polynomial::{Polynomial,univariate::{DensePolynomial,SparsePolynomial}, UVPolynomial}};
 use std::convert::{TryInto,From};
 use iop::{Oracle, Setup, Iop, Prover, Verifier, Witness};
@@ -29,19 +31,28 @@ use std::iter::{FromIterator};
 use niroa::{NiroaProof,Niroa, NiroaBatchProof, iop_prover_to_niroa_prover};
 use util::{get_subgroup_from_gen,find_generator_from_vec,q,verifier_challenge,sample_from_domain,lagrange_interpolate_over_points,rand_usize,rand_to_lower_bound,lagrange_interpolate_with_precompute,fft_evaluate_poly,parallel_batch_inverse_map,parallel_inverse_calpha,parallel_interpolate,batch_inverse,random_field_els,sequence_interpolate};
 use data_structures::{RSCodeDomain,Codeword,NonTerminalRound,TerminalRound,Round};
-use ark_crypto_primitives::{merkle_tree::{MerkleTree,Path,Config,Digest},crh::pedersen,FixedLengthCRH,prf::blake2s::Blake2s as MyBlake};
-use ark_std::io::Write;
+use ark_crypto_primitives::{merkle_tree::{GenericLeafDigestConverter, IdentityDigestConverter, MerkleTree,Path,Config},crh::{CRHScheme,TwoToOneCRHScheme, pedersen},prf::{PRF, blake2s::{Blake2s,TwoToOneBlake2s}}};
+//use ark_std::io::Write;
 use microbench::{self,Options};
 
+const CORE:usize = 8;
 
-pub type H = MyBlake;
 
 #[derive(Clone,Debug,CanonicalSerialize,CanonicalDeserialize)]
-pub struct BlakeMerkleTreeParams;
+pub struct BlakeMerkleTreeParams<F:ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default>{
+    _shadow: F
+}
 
-impl Config for BlakeMerkleTreeParams {
-   const HEIGHT: usize = 32;
-   type H = H;
+impl<F:ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>> Config for BlakeMerkleTreeParams<F> {
+    type Leaf = F;
+    type LeafDigest = <Blake2s<F> as CRHScheme>::Output;
+    type LeafInnerDigestConverter = IdentityDigestConverter<Self::LeafDigest>;
+    type InnerDigest = <TwoToOneBlake2s<F> as TwoToOneCRHScheme>::Output;
+
+
+    
+    type LeafHash = Blake2s<F>;
+    type TwoToOneHash = TwoToOneBlake2s<F>;
 }
 
 
@@ -57,10 +68,10 @@ impl<F:PrimeField> ToBytes for Coord<F> {
         Ok(())
     }
 }
-impl<F:PrimeField> Oracle for Round<F>{
+impl<F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>> Oracle for Round<F>{
     type X = F;
     type Y = F;
-    type C = BlakeMerkleTreeParams;
+    type C = BlakeMerkleTreeParams<F>;
     type Domain = RSCodeDomain<F>;
     //TODO - this function is a bit nonsense and makes me realize
     //oracle should maybe be codeword - challenge and all that
@@ -99,6 +110,7 @@ impl<F:PrimeField> Oracle for Round<F>{
 	if let Round::NonTerminalRound_(round) = self {
 	     let domain = round.codeword.as_ref().unwrap().domain();
 	    let evals = &round.codeword.as_ref().unwrap().evals;
+
 	    coords = evals.to_vec();
 	}
 	else if let Round::TerminalRound_(round) = self{
@@ -257,7 +269,7 @@ pub fn fri_setup<F:PrimeField>(k:u32,n:u32,r:u32) -> FRISetup<F>{
     return setup;
 }
 
-pub fn fri_iop<'a,F:PrimeField>(log_domain_size: u32, n : u32, rate_param:u32, s:&'a FRISetup<F>,p:&'a DensePolynomial<F>) -> Iop<'a,Round<F>,FRISetup<F>,DensePolynomial<F>>{
+pub fn fri_iop<'a,F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>>(log_domain_size: u32, n : u32, rate_param:u32, s:&'a FRISetup<F>,p:&'a DensePolynomial<F>) -> Iop<'a,Round<F>,FRISetup<F>,DensePolynomial<F>>{
     let mut prover_functions:Vec<fn((F, Vec<Round<F>>,FRISetup<F>,&DensePolynomial<F>)) -> Round<F>> = Vec::new();
     let mut verifier_functions:Vec<Box<dyn Fn(&Vec<Round<F>>, &FRISetup<F>) -> F>> = Vec::new();
     prover_functions.push(pf_1);
@@ -281,21 +293,21 @@ pub fn fri_iop<'a,F:PrimeField>(log_domain_size: u32, n : u32, rate_param:u32, s
 	}
     }
 }
-pub fn fri_commit<F:PrimeField>(mut setup : &FRISetup<F>, w: &DensePolynomial<F>) -> NiroaProof<Round<F>>{
+pub fn fri_commit<F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>>(mut setup : &FRISetup<F>, w: &DensePolynomial<F>) -> NiroaProof<Round<F>>{
     let temp_p = DensePolynomial::from_coefficients_slice(&[F::one()]);
     let mut friiop = fri_iop(setup.log_domain,setup.n,setup.rate_param,&mut setup, &temp_p);
     let mut fri_niroa = Niroa::<Round<F>,FRISetup<F>,DensePolynomial<F>>::from(friiop);
     fri_niroa.commit_phase(w)
 }
 
-pub fn fri_batch_commit<F:PrimeField>(mut setup : &FRISetup<F>, w: &Vec<DensePolynomial<F>>) -> NiroaBatchProof<Round<F>>{
+pub fn fri_batch_commit<F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>>(mut setup : &FRISetup<F>, w: &Vec<DensePolynomial<F>>) -> NiroaBatchProof<Round<F>>{
     let temp_p = DensePolynomial::from_coefficients_slice(&[F::one()]);
     let mut friiop = fri_iop(setup.log_domain,setup.n,setup.rate_param,&mut setup, &temp_p);
     let mut fri_niroa = Niroa::<Round<F>,FRISetup<F>,DensePolynomial<F>>::from(friiop);
     fri_niroa.batch_commit(w)
 
 }
-pub fn batch_verify<F:PrimeField>(mut setup:&FRISetup<F>,proof:&NiroaBatchProof<Round<F>>) -> bool{
+pub fn batch_verify<F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>>(mut setup:&FRISetup<F>,proof:&NiroaBatchProof<Round<F>>) -> bool{
     //verify each individual commitment
     for p in &proof.individual_proofs{
 	if(fri_verify(&mut setup, &p) == false){
@@ -307,7 +319,7 @@ pub fn batch_verify<F:PrimeField>(mut setup:&FRISetup<F>,proof:&NiroaBatchProof<
 }
 
 
-pub fn fri_verify<F:PrimeField>(mut setup: &FRISetup<F>, proof: &NiroaProof<Round<F>>) -> bool{
+pub fn fri_verify<F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>>(mut setup: &FRISetup<F>, proof: &NiroaProof<Round<F>>) -> bool{
     let temp_p = DensePolynomial::from_coefficients_slice(&[F::one()]);
     let mut friiop = fri_iop(setup.log_domain,setup.n,setup.rate_param,&mut setup, &temp_p);
     let mut fri_niroa = Niroa::<Round<F>,FRISetup<F>,DensePolynomial<F>>::from(friiop);
@@ -343,7 +355,7 @@ fn test_fri_batch_niroa_soundness(){
 
 
 
-pub fn query_polynomial<F:PrimeField>(p : &DensePolynomial<F>, points : Vec<F>,log_domain_size:u32) -> (Vec<(F,F)>, Vec<Path<BlakeMerkleTreeParams>>){
+pub fn query_polynomial<F:PrimeField + ToBytes + Clone + CanonicalSerialize + CanonicalDeserialize + Debug + Default + Add<Output = F>>(p : &DensePolynomial<F>, points : Vec<F>,log_domain_size:u32) -> (Vec<(F,F)>, Vec<Path<BlakeMerkleTreeParams<F>>>){
     let l0:RSCodeDomain<F> = setup(log_domain_size);
     let domain = l0.unwrap();
     let evaluation = fft_evaluate_poly(p.clone(), &domain);
@@ -356,7 +368,7 @@ pub fn query_polynomial<F:PrimeField>(p : &DensePolynomial<F>, points : Vec<F>,l
 	let eval = query_codeword(codeword,point);
 	coords.push((*point,eval));
 	let position = get_non_terminal_round(&oracle).unwrap().codeword.as_ref().unwrap().domain().elements().position(|x| x == *point).unwrap();
-	let path = tree.generate_proof(position, &eval).unwrap();
+	let path = tree.generate_proof(position).unwrap();
 	paths.push(path);
     }
     (coords,paths)
@@ -493,6 +505,9 @@ pub fn get_query_points<F:PrimeField>(o: &Vec<Round<F>>) -> Vec<Vec<(F,F)>>{
 
 pub fn fri_query<F:PrimeField>(query_points : &Vec<Vec<(F,F)>>, setup: &FRISetup<F>,challenges: &Vec<F>)->bool{
     //TODO : handle the case when query_points.len() < 2
+    if query_points.len() < 2{
+	return true;
+    }
     for i in 0..query_points.len(){
 	//second to last round
 	if i == query_points.len() - 2{
@@ -880,21 +895,26 @@ pub fn parallel_interpolate_eval<F:PrimeField>(ys : &Vec<F> ,challenge:F,c : &Co
     prods.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
     prods.iter().map(|(i,e)| *e).collect()
 }
-*/
+ */
+
 fn get_all_domains<F:PrimeField>(log_domain_size:u32,num_rounds:usize,coset_size_log:u32) -> Vec<(usize,F,Vec<F>)>{
     // Each domain maps to a set of cosets in previous domain
     //first get the first domain
     let mut prev_domain = None;
+
     while prev_domain == None {
 	prev_domain = Radix2EvaluationDomain::<F>::new(2u64.pow(log_domain_size).try_into().unwrap());
     }
+
     //each element of sys is (round_num,domain_point,coset in prev domain)
     let mut sys : Vec<(usize,F, Vec<F>)> = Vec::new();
     //cosets is a set of cosets - one for each element of next domain
     for i in 0..num_rounds{
 	//each round - domain = domain associated with round
 	//cosets = cosets in last round - each one maps to domain point in domain
+
 	let (domain,cosets) = get_next_domain(&q(coset_size_log),prev_domain);
+
 	//key is point in domain, val is one coset : Vec<F>
 	for (key,val) in cosets{
 	    sys.push((i,key,val));
@@ -921,7 +941,9 @@ fn prods<F:PrimeField>(args:Vec<F>) -> F{
 }
 
 pub fn compute_calpha<F:PrimeField>(log_domain_size:u32,num_rounds:usize,coset_size_log:u32) -> Vec<(usize,F,F,F)>{
+
     let cosets = get_all_domains(log_domain_size,num_rounds,coset_size_log);
+
     let mut everything = Vec::new();
     for (round_num,domain_point,coset) in &cosets{
 	let mut prods = Vec::new();
@@ -938,7 +960,9 @@ fn profile_compute_calpha(){
     let r = 1u32;
     let n = 2u32;
     let now = Instant::now();
+
     let num_rounds = get_last_nt_round_index(k,r,n);
+
     let c_alpha = compute_calpha::<Fr>(k,num_rounds,n);
 
 }
@@ -956,7 +980,7 @@ fn profile_parallel_compute_calpha(){
 }
 pub fn parallel_compute_calpha<F:PrimeField>(log_domain_size:u32,num_rounds:usize,coset_size_log:u32) -> Vec<(usize,F,F,F)>{
     let cosets = get_all_domains(log_domain_size,num_rounds,coset_size_log);
-    let cores:usize = num_cpus::get();
+    let cores:usize = CORE; //num_cpus::get();
     let max = cosets.len();
     let mut everything = Vec::new();
     let (snd,rcv) = bounded(1);
@@ -1001,7 +1025,7 @@ pub fn parallel_compute_calpha<F:PrimeField>(log_domain_size:u32,num_rounds:usiz
 }
 pub fn parallel_compute_calpha_as_map<F:PrimeField>(log_domain_size:u32,num_rounds:usize,coset_size_log:u32) -> BTreeMap<(usize,F),Vec<(F,F)>>{
     let cosets = get_all_domains(log_domain_size,num_rounds,coset_size_log); //this is equivalent to get_equivalence_classes
-    let cores:usize = num_cpus::get();
+    let cores:usize = CORE; //num_cpus::get();
     let max = cosets.len();
     let mut everything = BTreeMap::new();
     let (snd,rcv) = bounded(1);

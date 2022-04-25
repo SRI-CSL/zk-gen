@@ -6,10 +6,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-ff = {git = "https://github.com/SRI-CSL/algebra", default-features=false, version = "0.1.0",features=["asm","parallel"] }
-ark-poly ={git = "https://github.com/SRI-CSL/algebra", default-features=false, version="0.1.0"}
-ark-bn254 = {git = "https://github.com/SRI-CSL/curves"}
-ark-test-curves = {git = "https://github.com/SRI-CSL/algebra", default-features=false, features=["bls12_381_curve","mnt4_753_curve"], version="0.1.0"}
-ark-std = {version = "0.2.1-alpha.0", git = "https://github.com/SRI-CSL/utils", default-features = false, branch = "feb_freeze_orig"}
-ark-serialize = {git = "https://github.com/SRI-CSL/algebra", default-features=false, version = "0.1.0"}
+ark-ff = {git = "https://github.com/SRI-CSL/algebra", default-features=false, branch = "v3_sri" ,features=["asm","parallel"] }
+ark-poly ={git = "https://github.com/SRI-CSL/algebra", default-features=false, branch = "v3_sri"}
+ark-bn254 = {git = "https://github.com/SRI-CSL/curves", branch = "v3_sri"}
+ark-test-curves = {git = "https://github.com/SRI-CSL/algebra", default-features=false, features=["bls12_381_curve","mnt4_753_curve"], branch="v3_sri"}
+ark-std = {version = "0.2.1-alpha.0", git = "https://github.com/SRI-CSL/utils", default-features = false}
+ark-serialize = {git = "https://github.com/SRI-CSL/algebra", default-features=false, branch="v3_sri"}
 derivative={version="2",features=["use_core"]}

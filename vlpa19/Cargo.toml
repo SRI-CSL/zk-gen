@@ -7,22 +7,23 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+mpc-trait = { git = "https://github.com/SRI-CSL/mpc-trait" }
 serde_json = "1.0"
-ark-bls12-381 = { git = "https://github.com/SRI-CSL/curves", default-features = false, features = [ "curve" ], version="0.1.0" }
+ark-bls12-381 = { git = "https://github.com/SRI-CSL/curves", branch = "v3_sri", default-features = false, features = [ "curve" ]}
 blake2 = { version = "0.9.1", default-features = false }
 microbench = "0.5.0"
-ark-relations = { git = "https://github.com/SRI-CSL/snark", default-features = false, version = "0.1.0" }
-ark-ff = {git = "https://github.com/SRI-CSL/algebra", default-features=false, version = "0.1.0",features=["asm","parallel"]}
-ark-poly ={git = "https://github.com/SRI-CSL/algebra", default-features=false, version = "0.1.0"} 
-ark-test-curves = {git = "https://github.com/SRI-CSL/algebra", default-features=false, features = ["bls12_381_curve","mnt4_753_curve"], version = "0.1.0"}
+ark-relations = { git = "https://github.com/SRI-CSL/snark", branch = "v3_sri", default-features = false }
+ark-ff = {git = "https://github.com/SRI-CSL/algebra", default-features=false, branch = "v3_sri",features=["asm","parallel"]}
+ark-poly ={git = "https://github.com/SRI-CSL/algebra", default-features=false, branch = "v3_sri"} 
+ark-test-curves = {git = "https://github.com/SRI-CSL/algebra", default-features=false, branch = "v3_sri", features = ["bls12_381_curve","mnt4_753_curve"]}
 num-traits = { version = "0.2", default-features = false }
-ark-std = { version="0.2.1-alpha.0" , git = "https://github.com/SRI-CSL/utils", default-features = false, branch = "feb_freeze_orig"}
-ark-poly-commit = { git = "https://github.com/SRI-CSL/poly-commit", default-features = false, version = "0.1.0" }
-ark-crypto-primitives = {git="https://github.com/SRI-CSL/crypto-primitives", default-features=false, branch="main"}
-ark-serialize = { git = "https://github.com/SRI-CSL/algebra", default-features = false, features = [ "derive" ], version = "0.1.0" }
+ark-std = { version="0.2.1-alpha.0" ,  git = "https://github.com/SRI-CSL/utils", default-features = false}
+ark-poly-commit = { git = "https://github.com/SRI-CSL/poly-commit", branch = "v3_sri", default-features = false }
+ark-crypto-primitives = {git="https://github.com/SRI-CSL/crypto-primitives", default-features=false, branch="new"}
+ark-serialize = { git = "https://github.com/SRI-CSL/algebra", default-features = false, branch = "v3_sri", features = [ "derive" ] }
 rand_core = { version = "0.5", default-features=false}
 derivative = { version = "2", features = [ "use_core" ] }
 fri = {path="../fri" , default-features=false}
-ark-marlin = { git = "https://github.com/SRI-CSL/marlin", default-features = false, version = "0.1.0" }
+ark-marlin = { git = "https://github.com/SRI-CSL/marlin", default-features = false, branch = "v3_sri"}
 #ark-marlin = { path = "../../marlin", default-features = false, version = "0.1.0" }
 

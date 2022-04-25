@@ -6,16 +6,18 @@ extern crate num_cpus;
 use std::thread;
 use crossbeam_channel::bounded;
 use ark_ff::{FftField, FftParameters, Field, One, PrimeField, Zero};
-use ark_test_curves::bls12_381::{Fr};
+use ark_test_curves::bls12_381::Fr;
+
 type Func<In,Out> = fn(In) -> Out;
 //I have a vector of things I want to run the same function on
 //So split the vector into batches - and then in each core, execute function on each element of sub vector
 //then recombine
+const CORE:usize = 8;
 fn insert<F: PrimeField>(key : F, val: F, hm : &mut BTreeMap<F,Vec<F>>){
     hm.entry(key).and_modify(|v| { v.push(val) }).or_insert(vec![val]);
 }
 pub fn parallel_function<In: Clone + Send + Sync, Out: Clone + Send + Sync>(ys : &Vec<In>, fun : Func<In,Out>) -> Vec<(usize,Out)> {
-    let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get_physical();
      let max = ys.len();
      let (snd,rcv) = bounded(1);
     let mut results = Vec::new();
@@ -65,12 +67,13 @@ type FunAux<In,Out,Aux,Key> = fn(In,Key,Aux) -> Out;
 //then recombine
 pub fn parallel_btreemap<Aux: Clone + Send + Sync, Key: Clone + Send + Sync + Ord, In: Clone + Send + Sync, Out: Clone + Send + Sync>(map : BTreeMap<Key,In>, aux: Vec<Aux>, fun : FunAux<In,Out,Aux,Key>) -> BTreeMap<Key,Out> {
     let mut new_map = BTreeMap::new();
-    let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get_physical();
     let keys:Vec<Key> = map.keys().map(|k| k.clone()).collect();
      let max = keys.len();
      let (snd,rcv) = bounded(1);
     let ref_map = &map;
     let ref_aux = &aux;
+
     crossbeam::scope(|s| {
 	let mut batch_size = max / (cores);
 	let mut next = 0;
@@ -87,6 +90,7 @@ pub fn parallel_btreemap<Aux: Clone + Send + Sync, Key: Clone + Send + Sync + Or
 	    let (sen,rec) = (snd.clone(),rcv.clone());
 	    //inside ONE core
 	    s.spawn(move |_| {
+
 		for (index,key) in key_batches.iter().enumerate(){
 		    let mut local_results = Vec::new();
 		    let counter = index + next;
@@ -116,12 +120,13 @@ pub fn parallel_btreemap<Aux: Clone + Send + Sync, Key: Clone + Send + Sync + Or
 //then recombine
 pub fn parallel_hashmap<Aux: Clone + Send + Sync, Key: Hash + Clone + Send + Sync + Ord, In: Clone + Send + Sync, Out: Clone + Send + Sync>(map : HashMap<Key,In>, aux: Vec<Aux>, fun : FunAux<In,Out,Aux,Key>) -> HashMap<Key,Out> {
     let mut new_map = HashMap::new();
-    let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get_physical();
     let keys:Vec<Key> = map.keys().map(|k| k.clone()).collect();
      let max = keys.len();
      let (snd,rcv) = bounded(1);
     let ref_map = &map;
     let ref_aux = &aux;
+
     crossbeam::scope(|s| {
 	let mut batch_size = max / (cores);
 	let mut next = 0;
@@ -138,6 +143,7 @@ pub fn parallel_hashmap<Aux: Clone + Send + Sync, Key: Hash + Clone + Send + Syn
 	    let (sen,rec) = (snd.clone(),rcv.clone());
 	    //inside ONE core
 	    s.spawn(move |_| {
+
 		for (index,key) in key_batches.iter().enumerate(){
 		    let mut local_results = Vec::new();
 		    let counter = index + next;
@@ -164,7 +170,7 @@ pub fn parallel_hashmap<Aux: Clone + Send + Sync, Key: Hash + Clone + Send + Syn
 
 pub fn parallel_btreemap_noaux<Key: Clone + Send + Sync + Ord, In: Clone + Send + Sync, Out: Clone + Send + Sync>(map : BTreeMap<Key,In>, fun : Func<In,Out>) -> BTreeMap<Key,Out> {
     let mut new_map = BTreeMap::new();
-    let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get_physical();
     let keys:Vec<Key> = map.keys().map(|k| k.clone()).collect();
      let max = keys.len();
      let (snd,rcv) = bounded(1);
@@ -204,7 +210,7 @@ pub fn parallel_btreemap_noaux<Key: Clone + Send + Sync + Ord, In: Clone + Send 
 }
 pub fn parallel_hashmap_noaux<Key: Clone + Send + Sync + Ord + Hash, In: Clone + Send + Sync, Out: Clone + Send + Sync>(map : HashMap<Key,In>, fun : Func<In,Out>) -> HashMap<Key,Out> {
     let mut new_map = HashMap::new();
-    let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get_physical();
     let keys:Vec<Key> = map.keys().map(|k| k.clone()).collect();
      let max = keys.len();
      let (snd,rcv) = bounded(1);
@@ -263,7 +269,7 @@ fn unflatten<K: Copy + Clone + Hash + Eq, F:Copy + Clone + Eq + Hash>(to_unflatt
 }
 pub fn parallel_hashmap_flatten<Key: Clone + Debug + Send + Copy + Sync + Ord + Hash, In: Clone + Send + Sync + Copy + Debug, Out: Debug + Copy + Clone + Eq + Hash + Send + Sync>(map : &HashMap<Key,Vec<In>>, fun : VecFunc<In,Out>) -> HashMap<Key,Vec<Out>> {
     let mut new_map = HashMap::new();
-    let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get();
     let keys:Vec<Key> = map.keys().map(|k| k.clone()).collect();
      let max = keys.len();
      let (snd,rcv) = bounded(1);
@@ -319,7 +325,8 @@ type VecFunc<In,Out> = fn(Vec<In>) -> Vec<Out>;
 //So split the vector into batches - and then in each core, execute function on each entire sub vector
 //then recombine
 pub fn parallel_vec_function<In: Clone + Send + Sync, Out: Clone + Send + Sync>(ys : &Vec<In>, fun : VecFunc<In,Out>) -> (Vec<(usize,Out)>) {
-     let cores:usize = num_cpus::get_physical();
+    let cores:usize = CORE; //num_cpus::get();
+
      let max = ys.len();
      let (snd,rcv) = bounded(1);
     let mut results = Vec::new();
@@ -336,10 +343,12 @@ pub fn parallel_vec_function<In: Clone + Send + Sync, Out: Clone + Send + Sync>(
 	    else{
 		this_batch_size = batch_size;
 	    }
+
 	    let batches = &ys[next..(next + this_batch_size)]; // 0 to 2
 	    let (sen,rec) = (snd.clone(),rcv.clone());
 	    //inside ONE core
 	    s.spawn(move |_| {
+
 		let local_results:Vec<(usize,Out)> = fun(batches.to_vec()).iter().enumerate().map(|(i,x)| (next + i,x.clone())).collect();
 		sen.send(local_results);
 	    });

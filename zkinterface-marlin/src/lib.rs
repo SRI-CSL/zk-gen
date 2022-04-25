@@ -1,4 +1,3 @@
-use std::{time::{Duration, Instant}};
 use zkinterface::consumers::simulator::Simulator;
 use zkinterface::ConstraintSystem;
 use zkinterface::Messages;
@@ -215,7 +214,7 @@ mod tests {
 
  //   use ark_test_curves::{bls12_381::Fr, Bls12_381};//, Field, FromBytes, UniformRand};
     use ark_std::{test_rng};
-    use ark_bls12_377::{Fr};
+    use ark_bls12_381::{Fr};
 
     use ark_ff::{One};
     use blake2::Blake2s;
@@ -232,16 +231,13 @@ mod tests {
 
    
     fn test_circuit( witness:String,relation:String,instance:String){
-	let setup_time_start = Instant::now();	
         let rng = &mut test_rng();
-	let reader = verifier_reader::<Fr>(relation.clone(),instance.clone());
-	let circuit = Circuit::set_circuit(&reader);	
-        let index:Index<Fr> = AHPForR1CS::index(circuit.clone()).ok().unwrap();
-        let universal_srs = MarlinInst::universal_setup(index.index_info.num_constraints, index.index_info.num_variables, index.index_info.num_non_zero, rng).unwrap();
+        
         //TODO get numbers from messages
-        println!("done with setup");
+        let universal_srs = MarlinInst::universal_setup(3,5, 3, rng).unwrap();
 
-	let reader = prover_reader::<Fr>(relation.clone(),witness.clone(),instance.clone());
+        println!("done with setup");
+	let reader = prover_reader::<Fr>(relation,witness,instance);
         let circ = Circuit{
 	    reader: &reader
 	};
@@ -249,20 +245,16 @@ mod tests {
         let (index_pk, index_vk) = MarlinInst::index(&universal_srs, circ.clone()).unwrap();
 
         println!("done with indexing");
-	println!("setup time {:?}", setup_time_start.elapsed().as_millis());
 
-	let proof_time_start = Instant::now();
         let proof = MarlinInst::prove(&index_pk, circ, rng).unwrap();
-	println!("proof time {:?}", proof_time_start.elapsed().as_millis());	
 
         println!("done with proving");
 
 
-        let pub_input_func = verifier_reader::<Fr>(relation,instance);
+        let pub_input_func = verifier_reader::<Fr>("src/test/messages/r1cs.zkif".to_string(),"src/test/messages/circuit_witness.zkif".to_string());
 	let pub_vars = get_pub_vars(&pub_input_func);
-	let verify_time_start = Instant::now();	 	
         assert!(MarlinInst::verify(&index_vk, pub_vars.as_slice(), &proof, rng).unwrap());
-	println!("verify time {:?}", verify_time_start.elapsed().as_millis());       
+       
         // should fail since public inputs are now in the wrong order
         let mut wrong = pub_vars;
 	wrong.reverse();
@@ -275,7 +267,7 @@ mod tests {
 
     #[test]
     fn bellman_circuit_test(){
-        test_circuit("./rand_five0_r1cs/witness.zkif".to_string(), "./rand_five0_r1cs/constraints.zkif".to_string(), "./rand_five0_r1cs/header.zkif".to_string());
+        test_circuit("./src/test/messages/witness.zkif".to_string(), "./src/test/messages/r1cs.zkif".to_string(), "./src/test/messages/circuit_witness.zkif".to_string());
     }
 
 

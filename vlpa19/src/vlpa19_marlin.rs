@@ -1,8 +1,8 @@
 use crate::vlpa19::{Vlpa19};
 use crate::data_structures::{UniversalParams,CommitterKey,VerifierKey,PreparedVerifierKey,Commitment,Randomness,Proof,FriProof,CommitmentMulDegreeBounds,ProofLC,PreparedCommitment};
 use std::time::{Duration, Instant};
-use rand_core::RngCore;
-use ark_std::{string::String,marker::PhantomData,io::{Read,Write},ops::{Mul,Sub,Div,Neg,SubAssign,Add,AddAssign},collections::{BTreeMap, BTreeSet}};
+
+use ark_std::{string::String,marker::PhantomData,io::{Read,Write},ops::{Mul,Sub,Div,Neg,SubAssign,Add,AddAssign},collections::{BTreeMap, BTreeSet}, rand::RngCore};
 use ark_std::{convert::TryInto,iter::FromIterator};
 use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize};
 use fri::fri::{data_structures::{RSCodeDomain,Round},fri_setup,query_codeword,fri_iop, get_coset_from_codeword,setup,prover,get_non_terminal_round,util::{rand_usize,sample_from_domain,verifier_challenge,rand_to_lower_bound}};
@@ -168,7 +168,7 @@ impl<F:PrimeField> PolynomialCommitment<F,DensePolynomial<F>> for Vlpa19_Marlin<
 		//degree associated with commitment of b_row is 31 instead of 30
 		//a_row and b_row somehow got switched in commitment map
 
-		poly_sum +=  &(&DensePolynomial::from_coefficients_slice(&[F::from(challenge)]) * poly);
+		poly_sum +=  &(&DensePolynomial::from_coefficients_slice(&[F::from(challenge)]) * *poly);
 		challenge_counter = challenge_counter + 1;
 	    }
 	    let lc_poly = LabeledPolynomial::new(degree.to_string(),poly_sum, Some(degree.clone()), Some(degree.clone()));
@@ -221,7 +221,8 @@ impl<F:PrimeField> PolynomialCommitment<F,DensePolynomial<F>> for Vlpa19_Marlin<
     {
 
 	let mut rands = Vec::new();
-        let linear_combinations: Vec<_> = linear_combinations.into_iter().collect();
+       let linear_combinations: Vec<_> = linear_combinations.into_iter().collect();
+       println!("linear combinations {:?}", linear_combinations);
         let polynomials: Vec<_> = polynomials.into_iter().collect();
         let poly_query_set =
 		lc_query_set_to_poly_query_set(linear_combinations.iter().copied(), query_set);
@@ -252,14 +253,15 @@ impl<F:PrimeField> PolynomialCommitment<F,DensePolynomial<F>> for Vlpa19_Marlin<
 	    let mut query_points_map = BTreeMap::new();
 	    //for each linear combination
 	    //prover evaluates linear combinations
-	for (lc) in linear_combinations {
+       for (lc) in linear_combinations {
+	   println!("lc {:?}", lc);
 	    let q = lquery_to_labels_map.get(lc.label()).unwrap(); //get point to evaluate lc at
 	    
 	    query_points_map.insert(q,true);
 	}
 	    let query_points:Vec<(String,F)> = query_points_map.keys().cloned().map(|(a,b)| (*a,*b)).map(|(a,b)| (a.clone(), b.clone())).collect();
 	    let mut round_map = BTreeMap::new();
-	    round_map.entry(0usize).or_insert(vec!["a_row","a_col","a_val","a_row_col","b_row","b_col","b_val","b_row_col","c_row","c_col","c_row_col"]);
+	    round_map.entry(0usize).or_insert(vec!["a_val","b_val","row_col","row","col","c_val"]);
 	    round_map.entry(1usize).or_insert(vec!["w","z_a","z_b","mask_poly"]);
 	    round_map.entry(2usize).or_insert(vec!["t","g_1","h_1"]);
 	    round_map.entry(3usize).or_insert(vec!["g_2","h_2"]);
@@ -268,6 +270,8 @@ impl<F:PrimeField> PolynomialCommitment<F,DensePolynomial<F>> for Vlpa19_Marlin<
 		let mut commitments: Vec<&'a LabeledCommitment<Self::Commitment>> = Vec::new();
 		//gather polynomials and commitments for round associated with key
 		for label in &value{
+		    println!("poly label map {:?}", poly_label_map.keys());
+		    println!("label {:?}", label);
 		    let poly = &poly_label_map.get(&label.to_string()).unwrap().clone();
     		    polynomials.push(poly);
 		    let commitment = &commitment_label_map.get(&label.to_string()).unwrap().clone();
@@ -369,7 +373,7 @@ impl<F:PrimeField> PolynomialCommitment<F,DensePolynomial<F>> for Vlpa19_Marlin<
 
        let label_proof_map = proof.proof.iter().map(|p| (p.label(), p)).collect::<BTreeMap<_,_>>();
        let mut round_map = BTreeMap::new();
-       round_map.entry(0usize).or_insert(vec!["a_row","a_col","a_val","a_row_col","b_row","b_col","b_val","b_row_col","c_row","c_col","c_row_col"]);
+       round_map.entry(0usize).or_insert(vec!["row","col","a_val","row_col","b_val","c_val"]);
        round_map.entry(1usize).or_insert(vec!["w","z_a","z_b","mask_poly"]);
        round_map.entry(2usize).or_insert(vec!["t","g_1","h_1"]);
        round_map.entry(3usize).or_insert(vec!["g_2","h_2"]);

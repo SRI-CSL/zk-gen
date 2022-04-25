@@ -1,21 +1,22 @@
 use crate::vlpa19::{Vlpa19};
+use mpc_trait::MpcWire;
 use ark_std::collections::BTreeMap;
 use ark_ff::{PrimeField, Zero, FpParameters,One, BigInteger256, Field, FftField, FftParameters,ToBytes,FromBytes};
 use ark_poly_commit::{PolynomialCommitment,data_structures::*};
 use ark_poly::{domain::{EvaluationDomain,GeneralEvaluationDomain,Radix2EvaluationDomain},polynomial::{Polynomial,univariate::{DensePolynomial,SparsePolynomial}, UVPolynomial}};
-use rand_core::RngCore;
-use ark_std::{string::String,marker::PhantomData,io::{Read,Write}};
-use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize};
-use fri::{RSCodeDomain,Round,setup,TerminalRound,Codeword,fri::niroa::{NiroaProof,NiroaBatchProof, MerkleRoot, prover_init},H,BlakeMerkleTreeParams,FRISetup};
+
+use ark_std::{string::String,marker::PhantomData, rand::RngCore};
+use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize, Read, Write};
+use fri::{RSCodeDomain,Round,setup,TerminalRound,Codeword,fri::niroa::{NiroaProof,NiroaBatchProof, MerkleRoot, prover_init},BlakeMerkleTreeParams,FRISetup};
 use derivative::Derivative;
-use ark_crypto_primitives::merkle_tree::{Digest,Path};
+use ark_crypto_primitives::merkle_tree::{Path};
 
 
 pub struct WitnessProof<F:PrimeField>{
     pub degree_bound:usize,
     pub proof: FriProof<F>,
     pub sim_query_points : Vec<(F,F)>,
-    pub sim_paths: Vec<Path<BlakeMerkleTreeParams>>,
+    pub sim_paths: Vec<Path<BlakeMerkleTreeParams<F>>>,
     pub eval: F,
     pub point : F
 }
@@ -179,13 +180,13 @@ pub struct Commitment<F:PrimeField>{
     pub label: String
 	
 }
-
+impl<F:PrimeField> MpcWire for Commitment<F> { }
 impl<F:PrimeField> CanonicalSerialize for Commitment<F>{
     fn serialize<W:Write>(&self,mut writer:W) -> Result<(),SerializationError>{
 	self.fri_proof.serialize(&mut writer);
-	let mut bytes_writer = Vec::new();
-	self.lc_eval_root.write(&mut bytes_writer);
-	bytes_writer.serialize(&mut writer);
+//	let mut bytes_writer = Vec::new();
+	self.lc_eval_root.serialize(&mut writer);
+//	bytes_writer.serialize(&mut writer);
 	self.degree_bound.serialize(&mut writer);
 	self.label.serialize(&mut writer);
 	Ok(())
@@ -198,8 +199,8 @@ impl<F:PrimeField> CanonicalSerialize for Commitment<F>{
 impl<F:PrimeField> CanonicalDeserialize for Commitment<F>{
     fn deserialize<R:Read>(mut reader:R) -> Result<Self,SerializationError>{
 	let fri_proof = FriProof::<F>::deserialize(&mut reader).ok().unwrap();
-	let bytes_lc_eval = Vec::<u8>::deserialize(&mut reader).ok().unwrap();
-	let eval_root = MerkleRoot::<Round<F>>::read(&bytes_lc_eval[..]).ok().unwrap();
+//	let bytes_lc_eval = Vec::<u8>::deserialize(&mut reader).ok().unwrap();
+	let eval_root = MerkleRoot::<Round<F>>::deserialize(&mut reader).ok().unwrap();
 	let degree_bound = usize::deserialize(&mut reader).ok().unwrap();
 	let label = String::deserialize(&mut reader).ok().unwrap();
 	return Ok(Self{
@@ -226,7 +227,7 @@ impl<F:PrimeField> PCCommitment for Commitment<F>{
 	//stub
 	Commitment{
 	    fri_proof:FriProof(prover_init::<Round<F>>()),
-	    lc_eval_root: [0;32],
+	    lc_eval_root: [0;32].to_vec(),
 	    degree_bound : 0usize,
 	    label: "label".to_string()
 	}
@@ -245,6 +246,7 @@ pub struct CommitmentMulDegreeBounds<F:PrimeField>{
     pub commitment:Commitment<F>,
     pub shifted_commitment:Option<Commitment<F>>
 }
+impl<F:PrimeField> MpcWire for CommitmentMulDegreeBounds<F>{}
 impl<F:PrimeField> ToBytes for CommitmentMulDegreeBounds<F>{
     #[inline]
     fn write<W:Write>(&self,writer:W) -> ark_std::io::Result<()>{

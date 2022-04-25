@@ -23,6 +23,11 @@ impl<ConstraintF: Field> ConstraintSynthesizer<ConstraintF> for Circuit<Constrai
         self,
         cs: ConstraintSystemRef<ConstraintF>,
     ) -> Result<(), SynthesisError> {
+	// a and b are witnesses
+	//c = a*b
+	//d = a*b*b
+	//first n-1 constraints:   cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
+	//last constraint:         cs.enforce_constraint(lc!() + c, lc!() + b, lc!() + d)?; 
         let a = cs.new_witness_variable(|| self.a.ok_or(SynthesisError::AssignmentMissing))?;
         let b = cs.new_witness_variable(|| self.b.ok_or(SynthesisError::AssignmentMissing))?;
         let c = cs.new_input_variable(|| {
@@ -121,7 +126,7 @@ impl<F: Field> ConstraintSynthesizer<F> for OutlineTestCircuit<F> {
 pub mod marlin {
     use super::*;
     use ark_ff::PrimeField;
-    use ark_marlin::{Marlin,IndexVerifierKey,IndexProverKey};
+    use ark_marlin::{Marlin,IndexVerifierKey,IndexProverKey, ahp::indexer::Index, AHPForR1CS};
     use crate::{vlpa19_marlin::Vlpa19_Marlin,data_structures::UniversalParams};
     use ark_bls12_381::{Bls12_381, Fr};
     use ark_ff::UniformRand;
@@ -152,7 +157,7 @@ pub mod marlin {
     pub fn test_circuit(num_constraints: usize, num_variables: usize) {
         let rng = &mut ark_std::test_rng();
 
-        let universal_srs = MarlinInst::universal_setup(num_constraints, num_variables , num_constraints, rng).unwrap();
+
 
         for _ in 0..1 {
             let a = Fr::rand(rng);
@@ -169,6 +174,8 @@ pub mod marlin {
                 num_variables,
             };
 
+            let index:Index<Fr> = AHPForR1CS::index(circ.clone()).ok().unwrap();
+            let universal_srs = MarlinInst::universal_setup(index.index_info.num_constraints, index.index_info.num_variables , index.index_info.num_non_zero, rng).unwrap();
             let (index_pk, index_vk) = MarlinInst::index(&universal_srs, circ.clone()).unwrap();
             println!("Called index");
 
@@ -241,10 +248,10 @@ pub mod marlin {
 
     #[test]
     fn prove_and_verify_with_tall_matrix_big() {
-//	let num_constraints = 100; //n = 2 .53, n = 4 .43, n = 5 .43, n = 6 .45, n= 7 .51  MOST RECENT 7/24 : .56s 
-//	  let num_constraints = 500; //n = 2 2.27, n = 4 1.24, n = 6 1.13, n = 8 1.8, n = 10 8.97 7/24: 1.18s
+//	let num_constraints = 1000000; //n = 2 .53, n = 4 .43, n = 5 .43, n = 6 .45, n= 7 .51  MOST RECENT 7/24 : .56s 
+	  let num_constraints = 500; //n = 2 2.27, n = 4 1.24, n = 6 1.13, n = 8 1.8, n = 10 8.97 7/24: 1.18s
 //	let num_constraints = 1000; //n = 2 7.47 , n = 4 3.17, n = 6 2.58 , n = 8 3.66, n = 10 9.2 UPDATED on 8 cores: 1.75 seconds with n = log(domain)/2  7/24: 1.73
-	let num_constraints = 10000; //n = 4: 12 minutes // n = 5, 8 minutes// n = k / 2 : ~4 minutes, now less than a minute with parallelization , no 48 seconds, now 18!: 7/24 : 41.78, 29.90
+//	let num_constraints = 10000; //n = 4: 12 minutes // n = 5, 8 minutes// n = k / 2 : ~4 minutes, now less than a minute with parallelization , no 48 seconds, now 18!: 7/24 : 41.78, 29.90
 //		let num_constraints = 100000; //n=10 4 hours (probably takes an hour now), last metric was .6 of an hour with parallelization - no 19 minutes
 //	let num_constraints = 1000000;
         let num_variables = 25;
@@ -254,7 +261,7 @@ pub mod marlin {
 
     #[test]
     fn prove_and_verify_with_tall_matrix_small() {
-        let num_constraints = 26;
+        let num_constraints = 25;
         let num_variables = 25;
 
         test_circuit(num_constraints, num_variables);

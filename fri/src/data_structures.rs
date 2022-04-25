@@ -1,8 +1,11 @@
- use ark_std::collections::BTreeMap;
-use ark_ff::{PrimeField,ToBytes};
+use ark_std::{collections::BTreeMap,result::Result as IoResult,io::Error};
+use ark_ff::{bytes::ToBytes};
+use ark_ff::PrimeField;
+use std::{thread};
 use ark_poly::{domain::{Radix2EvaluationDomain},evaluations::{univariate::{Evaluations}},polynomial::{univariate::{DensePolynomial}}};
-use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize};
-use ark_std::{io::{Read,Write}};
+use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize,Read,Write};
+
+use ark_test_curves::bls12_381::Fr;
 use derivative::Derivative;
 pub type RSCodeDomain<F:PrimeField> = Option<Radix2EvaluationDomain<F>>;
 
@@ -23,7 +26,7 @@ pub struct NonTerminalRound<F:PrimeField> {
     pub r: u32
 }
 impl<F:PrimeField> ToBytes for NonTerminalRound<F>{
-    fn write<W:Write>(&self,mut writer:W)->ark_std::io::Result<()>{
+    fn write<W:Write>(&self,mut writer:W)->IoResult<(),Error>{
 	self.challenge.unwrap().write(&mut writer)?;
 	self.n.write(&mut writer)?;
 	self.r.write(&mut writer)?;
@@ -41,7 +44,7 @@ pub struct TerminalRound<F: PrimeField> {
     pub domain : RSCodeDomain<F>
 }
 impl<F:PrimeField> ToBytes for TerminalRound<F>{
-    fn write<W:Write>(&self,mut writer:W)->ark_std::io::Result<()>{
+    fn write<W:Write>(&self,mut writer:W)->IoResult<(),Error>{
 	self.domain.unwrap().size.write(&mut writer)?;
 	self.poly.as_ref().unwrap().coeffs.write(&mut writer)
     }
@@ -52,7 +55,7 @@ pub enum Round<F:PrimeField> {
     TerminalRound_(TerminalRound<F>)
 }
 impl<F:PrimeField> ToBytes for Round<F>{
-    fn write<W:Write>(&self,mut writer:W)->ark_std::io::Result<()>{
+    fn write<W:Write>(&self,mut writer:W)->IoResult<(),Error>{
 	let round = match self{
 	    Round::TerminalRound_(r) => r.write(&mut writer),
 	    Round::NonTerminalRound_(r) => r.write(&mut writer)

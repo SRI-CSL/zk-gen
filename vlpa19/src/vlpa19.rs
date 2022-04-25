@@ -1,8 +1,8 @@
 use crate::data_structures::{UniversalParams,CommitterKey,VerifierKey,PreparedVerifierKey,Commitment,Randomness,Proof,FriProof,TempProof,WitnessProof};
 use ark_ff::{One,BigInteger256,Fp256,Zero};
 use std::collections::{BTreeMap};
-use rand_core::RngCore;
-use ark_std::{string::String,marker::PhantomData,io::{Read,Write},ops::{Mul,Sub,Div,Neg,SubAssign,Add,AddAssign}};
+
+use ark_std::{string::String,marker::PhantomData,io::{Read,Write},ops::{Mul,Sub,Div,Neg,SubAssign,Add,AddAssign}, rand::RngCore};
 use ark_serialize::{CanonicalSerialize,SerializationError,CanonicalDeserialize};
 use fri::fri::{FRISetup, BlakeMerkleTreeParams,data_structures::{RSCodeDomain,Round,Codeword},setup,fri_batch_commit, batch_verify, fri_commit, fri_verify, prover,query_polynomial, get_non_terminal_round,fri_iop,set_fri_setup,get_coset_from_codeword,query_codeword,verifier,fri_setup,niroa::{NiroaBatchProof,NiroaProof},util::{rand_usize,sample_from_domain,verifier_challenge,rand_to_lower_bound,lagrange_interpolate_over_points}};
 
@@ -175,7 +175,7 @@ impl<F:PrimeField> Vlpa19<F>{
 	return DensePolynomial::from_coefficients_slice(&coeffs);
     }
 
-    fn generate_proof(lc: Vec<LabeledCommitment<Commitment<F>>>, poly: &DensePolynomial<F>,opening_challenge:F,ck:&CommitterKey<F>,eval:&F,degree_bound:usize,rate_param:u32) -> (FriProof<F>, Vec<(F,F)>, Vec<Path<BlakeMerkleTreeParams>>){
+    fn generate_proof(lc: Vec<LabeledCommitment<Commitment<F>>>, poly: &DensePolynomial<F>,opening_challenge:F,ck:&CommitterKey<F>,eval:&F,degree_bound:usize,rate_param:u32) -> (FriProof<F>, Vec<(F,F)>, Vec<Path<BlakeMerkleTreeParams<F>>>){
 	let witness_polynomial = get_prover_poly_from_point(&opening_challenge,&poly).unwrap().0;
 
 	//commit to witness polynomial
@@ -239,9 +239,9 @@ impl<F:PrimeField> Vlpa19<F>{
 	for (degree,bucket) in &commitment_buckets{
 	    let log_domain = Vlpa19::<F>::get_min_log_domain(degree.clone(),setup.rate_param);
 	    setup.log_domain = log_domain;
-	    let root = bucket[0].commitment().lc_eval_root;
+	    let root = &bucket[0].commitment().lc_eval_root;
 	    let proofs:Vec<NiroaProof<Round<F>>> = bucket.iter().map(|c| c.commitment().fri_proof.0.clone()).collect();
-	    let verify = batch_verify(&mut setup, &NiroaBatchProof { individual_proofs : proofs , linear_combination_eval_root: root});
+	    let verify = batch_verify(&mut setup, &NiroaBatchProof { individual_proofs : proofs , linear_combination_eval_root: root.to_vec()});
 	    if(verify == false){
 		verify_commitment = false;
 	    }
