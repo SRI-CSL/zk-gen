@@ -73,7 +73,9 @@ We recommend installing the above dependencies using `opam`. However, they can b
 After installing `OCaml` and `opam`, typing
 
 ```
-$> opam install dune evocrypt wiztoolkit_ocaml domainslib yojson
+$> opam install dune domainslib yojson
+$> opam pin git+https://github.com/SRI-CSL/evocrypt.git#main
+$> opam pin git+https://github.com/SRI-CSL/wiztoolkit-ocaml-bindings.git#main
 $> opam pin git+https://github.com/disteph/timer.git#main
 ```
 
@@ -93,7 +95,7 @@ builds and install ZKGen (with corresponding binaries named `zk-gen-prover` and 
 ZKgen can also be installed via `opam`, by running
 
 ```
-$> opam install zk-gen
+$> opam pin git+https://github.com/SRI-CSL/zk-gen.git#main
 ```
 
 which installs ZKgen and its dependencies via `opam`.
