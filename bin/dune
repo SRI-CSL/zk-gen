@@ -1,0 +1,15 @@
+;Foreign archive libbindings.a
+; (rule
+;  (target libbindings.a)
+;  (action
+;    (copy %{lib:wiztoolkit:libbindings.a} libbindings.a))
+; )
+
+(executables
+ (public_names zk-gen-prover zk-gen-verifier)
+ (names zk_gen_prover zk_gen_verifier)
+ (libraries ZKGenLib)
+ (link_flags (:include /%{lib:wiztoolkit:link_flags}))
+ ;(foreign_archives bindings)
+ (flags
+  (:standard -warn-error -A)))
