@@ -40,12 +40,12 @@ let check () =
 let () =
   if Array.length Sys.argv < 11 then
     begin Format.eprintf "%s@." usage_message ; exit(1) end
-  Arg.parse options (fun a->args := a::!args) usage_message;
-
-  check () ;
-  
-  match !backend with
-  | "lpzk" -> ZKGenLib.LPZKVerifier.lpzk_verifier_exec !port !relation !instance !cores
-  | "mith-bgw" -> ZKGenLib.MITHBGWVerifier.mith_bgw_verifier_exec !port !relation !instance !cores
+  else
+    Arg.parse options (fun a->args := a::!args) usage_message;
+    check () ;
+    
+    match !backend with
+    | "lpzk" -> ZKGenLib.LPZKVerifier.lpzk_verifier_exec !port !relation !instance !cores
+    | "mith-bgw" -> ZKGenLib.MITHBGWVerifier.mith_bgw_verifier_exec !port !relation !instance !cores
   
 (*end*)
