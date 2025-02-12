@@ -32,7 +32,6 @@ let decide statement cs plugins =
   Format.printf "Randomness generated in %f ms.@." (Timer.read timer_random *. 1000.) ;
   Format.printf "Checking proof...@." ;
 
-  tasks := if Array.mem "iter_v0" plugins then !tasks else 1 ;
   let pool = Task.setup_pool ~num_domains:(!tasks-1) () in
   let n    = Array.length cs in
   let jobs = Array.make n [] in

@@ -50,7 +50,6 @@ let commitment_msg () =
   Format.printf "Prover randomness generated in %f ms@." (Timer.read timer_random *. 1000.);
   Format.printf "Producing commitment message...@." ;
 
-  tasks := if Array.mem "iter_v0" plugins then !tasks else 1 ;
   let pool        = Task.setup_pool ~num_domains:(!tasks-1) () in
   let jobs        = Array.make !tasks [] in
   let _chunk_size = Utils.create_jobs_for circuit jobs in
